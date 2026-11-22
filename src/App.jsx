@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import generatePayload from 'promptpay-qr'
+import { QRCodeSVG } from 'qrcode.react'
 import { calculateSplit } from './lib/calculateSplit'
 import { useLocalStorage } from './hooks/useLocalStorage'
 
@@ -6,7 +8,6 @@ const baht = (satang) =>
   (satang / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function App() {
-  // สามตัวนี้ถูกเก็บลงเครื่องอัตโนมัติ
   const [people, setPeople] = useLocalStorage('sb-people', [])
   const [items, setItems] = useLocalStorage('sb-items', [])
   const [config, setConfig] = useLocalStorage('sb-config', {
@@ -14,12 +15,14 @@ export default function App() {
     vatPercent: 7,
     discount: 0,
   })
+  const [promptpayId, setPromptpayId] = useLocalStorage('sb-promptpay', '')
 
   const [personName, setPersonName] = useState('')
   const [itemName, setItemName] = useState('')
   const [itemPrice, setItemPrice] = useState('')
   const [sharedBy, setSharedBy] = useState([])
   const [copied, setCopied] = useState(false)
+  const [qrFor, setQrFor] = useState(null)
 
   const addPerson = () => {
     if (!personName.trim()) return
@@ -29,7 +32,6 @@ export default function App() {
 
   const removePerson = (id) => {
     setPeople(people.filter((p) => p.id !== id))
-    // เอาคนนี้ออกจากทุกรายการ และลบรายการที่ไม่เหลือคนกินเลย
     setItems(
       items
         .map((i) => ({ ...i, sharedBy: i.sharedBy.filter((x) => x !== id) }))
@@ -42,7 +44,6 @@ export default function App() {
     setSharedBy(sharedBy.includes(id) ? sharedBy.filter((x) => x !== id) : [...sharedBy, id])
 
   const allSelected = people.length > 0 && sharedBy.length === people.length
-
   const toggleAll = () => setSharedBy(allSelected ? [] : people.map((p) => p.id))
 
   const addItem = () => {
@@ -62,6 +63,7 @@ export default function App() {
     setItems([])
     setConfig({ servicePercent: 10, vatPercent: 7, discount: 0 })
     setSharedBy([])
+    setQrFor(null)
   }
 
   const result = calculateSplit({ people, items, config })
@@ -198,13 +200,48 @@ export default function App() {
 
       <section className="card">
         <h2>4. สรุปยอด</h2>
+        <div className="field">
+          <span>พร้อมเพย์ผู้รับเงิน</span>
+          <input
+            type="tel"
+            inputMode="numeric"
+            style={{ maxWidth: 160 }}
+            value={promptpayId}
+            onChange={(e) => setPromptpayId(e.target.value.replace(/\D/g, ''))}
+            placeholder="เบอร์ 10 หลัก"
+          />
+        </div>
         <ul className="list">
-          {people.map((p) => (
-            <li key={p.id}>
-              <span>{p.name}</span>
-              <strong>{baht(result.totals[p.id] || 0)} บาท</strong>
-            </li>
-          ))}
+          {people.map((p) => {
+            const amount = result.totals[p.id] || 0
+            const canQR = promptpayId.length >= 10 && amount > 0
+            return (
+              <li key={p.id} style={{ flexWrap: 'wrap' }}>
+                <span>{p.name}</span>
+                <span>
+                  <strong>{baht(amount)} บาท</strong>{' '}
+                  {canQR && (
+                    <button
+                      className="x dark"
+                      onClick={() => setQrFor(qrFor === p.id ? null : p.id)}
+                      aria-label={`QR ของ ${p.name}`}
+                    >
+                      {qrFor === p.id ? '▲' : 'QR'}
+                    </button>
+                  )}
+                </span>
+                {canQR && qrFor === p.id && (
+                  <div className="qr">
+                    <QRCodeSVG
+                      value={generatePayload(promptpayId, { amount: amount / 100 })}
+                      size={180}
+                    />
+                    <div className="muted">สแกนจ่าย {baht(amount)} บาท</div>
+                  </div>
+                )}
+              </li>
+            )
+          })}
         </ul>
         <div className="total">
           <span>รวมทั้งหมด</span>

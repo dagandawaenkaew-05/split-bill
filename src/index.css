@@ -142,3 +142,4 @@ input[type='text'], input[type='number'] { font-size: 16px; } /* กัน iPhon
 /* ปุ่ม "ทุกคน" */
 .chip.all { font-family: inherit; font-weight: 600; border-style: dashed; border-color: var(--pink); color: var(--pink); }
 .chip.all.on { border-style: solid; color: #fff; }
+.qr { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0 4px; }
